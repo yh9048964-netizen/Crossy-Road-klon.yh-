@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <title>Crossy Road-klon.YH</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Spelduk -->
+    <canvas class="game"></canvas>
+
+    <!-- Kontroller (mobil/pek) -->
+    <div id="controls" aria-label="Spelkontroller">
+      <div>
+        <button id="forward" aria-label="Framåt">▲</button>
+        <button id="left" aria-label="Vänster">◀</button>
+        <button id="backward" aria-label="Bakåt">▼</button>
+        <button id="right" aria-label="Höger">▶</button>
+      </div>
+    </div>
+
+    <!-- Poäng -->
+    <div id="score" aria-live="polite">0</div>
+
+    <!-- Resultat-popup -->
+    <div id="result-container" role="dialog" aria-modal="true">
+      <div id="result">
+        <h1>Game Over</h1>
+        <p>Din poäng: <span id="final-score"></span></p>
+        <button id="retry">Spela igen</button>
+      </div>
+    </div>
+
+    <!-- Kredit längst ner -->
+    <div class="credit">Programmed by Youssef</div>
+
+    <!-- JS -->
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

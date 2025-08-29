@@ -1,0 +1,124 @@
+@import url("https://fonts.googleapis.com/css?family=Press+Start+2P");
+
+/* Baslayout – gör att canvas kan bli riktig fullscreen */
+html, body {
+  height: 100%;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: "Press Start 2P", cursive;
+  background: black;
+  overflow: hidden;           /* Ingen scroll – spelet täcker hela skärmen */
+  user-select: none;          /* Undvik markering */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Fullscreen canvas */
+canvas.game {
+  position: fixed;
+  inset: 0;                   /* top:0; right:0; bottom:0; left:0 */
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+/* Poäng uppe till vänster ovanpå spelet */
+#score {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  font-size: 2em;
+  color: white;
+  z-index: 10;
+  text-shadow: 0 2px 0 rgba(0,0,0,0.5);
+}
+
+/* Resultat-popupp */
+#result-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden; /* styrs via JS */
+  z-index: 20;
+}
+#result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  background-color: white;
+  padding: 22px 26px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+#result h1 {
+  margin: 0 0 6px;
+}
+#result button {
+  background-color: #e11d48; /* röd */
+  padding: 16px 28px;
+  font-family: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+  border: none;
+  color: white;
+  border-radius: 10px;
+}
+
+/* Pek-kontroller – visas främst på mindre skärmar */
+#controls {
+  position: fixed;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 15;
+  pointer-events: none; /* så canvas fortfarande kan ta emot pek – knapparna får tillbaka events */
+}
+#controls div {
+  display: grid;
+  grid-template-columns: 56px 56px 56px;
+  gap: 10px;
+  pointer-events: auto;
+}
+#controls button {
+  width: 100%;
+  height: 48px;
+  background-color: rgba(255,255,255,0.95);
+  border: 1px solid lightgray;
+  box-shadow: 3px 5px 0px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  border-radius: 10px;
+}
+#controls button:first-of-type {
+  grid-column: 1 / -1; /* ▲ centrerad över raden */
+}
+
+/* Visa kontroller på mobiler, tona ned på stora skärmar */
+@media (min-width: 900px) {
+  #controls {
+    opacity: 0.5;
+  }
+}
+
+/* Genomskinlig signatur längst ner i hörnet */
+.credit {
+  position: fixed;
+  bottom: 10px;   /* avstånd från botten */
+  right: 10px;    /* avstånd från höger */
+  font-size: 30px;
+  color: white;   /* textfärg */
+  opacity: 0.5;   /* halvgenomskinlig */
+  font-family: Arial, sans-serif;
+  pointer-events: none; /* stör inte spelet */
+  z-index: 25;
+}

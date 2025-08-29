@@ -1,0 +1,553 @@
+import * as THREE from "https://esm.sh/three";
+
+/* ---- Konstanter ---- */
+const minTileIndex = -8;
+const maxTileIndex = 8;
+const tilesPerRow = maxTileIndex - minTileIndex + 1;
+const tileSize = 42;
+
+/* ---- Kamera (ortografisk) ---- */
+function createCamera() {
+  const base = 300;
+  const aspect = window.innerWidth / window.innerHeight;
+  const width = aspect < 1 ? base : base * aspect;
+  const height = aspect < 1 ? base / aspect : base;
+
+  const cam = new THREE.OrthographicCamera(
+    -width / 2, width / 2, height / 2, -height / 2, 100, 900
+  );
+  cam.up.set(0, 0, 1);
+  cam.position.set(300, -300, 300);
+  cam.lookAt(0, 0, 0);
+  return cam;
+}
+function updateCameraFrustum(camera) {
+  const base = 300;
+  const aspect = window.innerWidth / window.innerHeight;
+  const width = aspect < 1 ? base : base * aspect;
+  const height = aspect < 1 ? base / aspect : base;
+
+  camera.left = -width / 2;
+  camera.right = width / 2;
+  camera.top = height / 2;
+  camera.bottom = -height / 2;
+  camera.updateProjectionMatrix();
+}
+
+/* ---- Hjälpfunktion för texturer av ritad canvas ---- */
+function Texture(width, height, rects) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  rects.forEach(r => ctx.fillRect(r.x, r.y, r.w, r.h));
+  return new THREE.CanvasTexture(canvas);
+}
+
+/* ---- Fordons-texturer ---- */
+const carFrontTexture = new Texture(40, 80, [{ x: 0, y: 10, w: 30, h: 60 }]);
+const carBackTexture = new Texture(40, 80, [{ x: 10, y: 10, w: 30, h: 60 }]);
+const carRightSideTexture = new Texture(110, 40, [
+  { x: 10, y: 0, w: 50, h: 30 },
+  { x: 70, y: 0, w: 30, h: 30 },
+]);
+const carLeftSideTexture = new Texture(110, 40, [
+  { x: 10, y: 10, w: 50, h: 30 },
+  { x: 70, y: 10, w: 30, h: 30 },
+]);
+
+const truckFrontTexture = Texture(30, 30, [{ x: 5, y: 0, w: 10, h: 30 }]);
+const truckRightSideTexture = Texture(25, 30, [{ x: 15, y: 5, w: 10, h: 10 }]);
+const truckLeftSideTexture  = Texture(25, 30, [{ x: 15, y: 15, w: 10, h: 10 }]);
+
+/* ---- Objektbyggen ---- */
+function Wheel(x) {
+  const wheel = new THREE.Mesh(
+    new THREE.BoxGeometry(12, 33, 12),
+    new THREE.MeshLambertMaterial({ color: 0x333333, flatShading: true })
+  );
+  wheel.position.x = x;
+  wheel.position.z = 6;
+  return wheel;
+}
+
+function Car(initialTileIndex, direction, color) {
+  const car = new THREE.Group();
+  car.position.x = initialTileIndex * tileSize;
+  if (!direction) car.rotation.z = Math.PI;
+
+  const main = new THREE.Mesh(
+    new THREE.BoxGeometry(60, 30, 15),
+    new THREE.MeshLambertMaterial({ color, flatShading: true })
+  );
+  main.position.z = 12;
+  main.castShadow = true;
+  main.receiveShadow = true;
+  car.add(main);
+
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(33, 24, 12), [
+    new THREE.MeshPhongMaterial({ color: 0xcccccc, flatShading: true, map: carBackTexture }),
+    new THREE.MeshPhongMaterial({ color: 0xcccccc, flatShading: true, map: carFrontTexture }),
+    new THREE.MeshPhongMaterial({ color: 0xcccccc, flatShading: true, map: carRightSideTexture }),
+    new THREE.MeshPhongMaterial({ color: 0xcccccc, flatShading: true, map: carLeftSideTexture }),
+    new THREE.MeshPhongMaterial({ color: 0xcccccc, flatShading: true }),
+    new THREE.MeshPhongMaterial({ color: 0xcccccc, flatShading: true }),
+  ]);
+  cabin.position.x = -6;
+  cabin.position.z = 25.5;
+  cabin.castShadow = true;
+  cabin.receiveShadow = true;
+  car.add(cabin);
+
+  car.add(Wheel(18));
+  car.add(Wheel(-18));
+
+  return car;
+}
+
+function Truck(initialTileIndex, direction, color) {
+  const truck = new THREE.Group();
+  truck.position.x = initialTileIndex * tileSize;
+  if (!direction) truck.rotation.z = Math.PI;
+
+  const cargo = new THREE.Mesh(
+    new THREE.BoxGeometry(70, 35, 35),
+    new THREE.MeshLambertMaterial({ color: 0xb4c6fc, flatShading: true })
+  );
+  cargo.position.x = -15;
+  cargo.position.z = 25;
+  cargo.castShadow = true;
+  cargo.receiveShadow = true;
+  truck.add(cargo);
+
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(30, 30, 30), [
+    new THREE.MeshLambertMaterial({ color, flatShading: true, map: truckFrontTexture }),
+    new THREE.MeshLambertMaterial({ color, flatShading: true }),
+    new THREE.MeshLambertMaterial({ color, flatShading: true, map: truckLeftSideTexture }),
+    new THREE.MeshLambertMaterial({ color, flatShading: true, map: truckRightSideTexture }),
+    new THREE.MeshPhongMaterial({ color, flatShading: true }),
+    new THREE.MeshPhongMaterial({ color, flatShading: true }),
+  ]);
+  cabin.position.x = 35;
+  cabin.position.z = 20;
+  cabin.castShadow = true;
+  cabin.receiveShadow = true;
+  truck.add(cabin);
+
+  truck.add(Wheel(37));
+  truck.add(Wheel(5));
+  truck.add(Wheel(-35));
+
+  return truck;
+}
+
+function Grass(rowIndex) {
+  const g = new THREE.Group();
+  g.position.y = rowIndex * tileSize;
+
+  const mk = color => new THREE.Mesh(
+    new THREE.BoxGeometry(tilesPerRow * tileSize, tileSize, 3),
+    new THREE.MeshLambertMaterial({ color })
+  );
+
+  const middle = mk(0xbaf455); middle.receiveShadow = true; g.add(middle);
+  const left = mk(0x99c846); left.position.x = -tilesPerRow * tileSize; g.add(left);
+  const right = mk(0x99c846); right.position.x = tilesPerRow * tileSize; g.add(right);
+  return g;
+}
+
+function Road(rowIndex) {
+  const r = new THREE.Group();
+  r.position.y = rowIndex * tileSize;
+
+  const mk = color => new THREE.Mesh(
+    new THREE.PlaneGeometry(tilesPerRow * tileSize, tileSize),
+    new THREE.MeshLambertMaterial({ color })
+  );
+
+  const middle = mk(0x454a59); middle.receiveShadow = true; r.add(middle);
+  const left = mk(0x393d49); left.position.x = -tilesPerRow * tileSize; r.add(left);
+  const right = mk(0x393d49); right.position.x = tilesPerRow * tileSize; r.add(right);
+  return r;
+}
+
+function Tree(tileIndex, height) {
+  const t = new THREE.Group();
+  t.position.x = tileIndex * tileSize;
+
+  const trunk = new THREE.Mesh(
+    new THREE.BoxGeometry(15, 15, 20),
+    new THREE.MeshLambertMaterial({ color: 0x4d2926, flatShading: true })
+  );
+  trunk.position.z = 10;
+  t.add(trunk);
+
+  const crown = new THREE.Mesh(
+    new THREE.BoxGeometry(30, 30, height),
+    new THREE.MeshLambertMaterial({ color: 0x7aa21d, flatShading: true })
+  );
+  crown.position.z = height / 2 + 20;
+  crown.castShadow = true;
+  crown.receiveShadow = true;
+  t.add(crown);
+
+  return t;
+}
+
+/* ---- Speldata ---- */
+const metadata = [];          // radernas innehåll (skog/vägar + fordon)
+const map = new THREE.Group();
+const player = Player();
+
+function Player() {
+  const p = new THREE.Group();
+
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(15, 15, 20),
+    new THREE.MeshLambertMaterial({ color: "white", flatShading: true })
+  );
+  body.position.z = 10;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  p.add(body);
+
+  const cap = new THREE.Mesh(
+    new THREE.BoxGeometry(2, 4, 2),
+    new THREE.MeshLambertMaterial({ color: 0xf0619a, flatShading: true })
+  );
+  cap.position.z = 21;
+  cap.castShadow = true;
+  cap.receiveShadow = true;
+  p.add(cap);
+
+  const container = new THREE.Group();
+  container.add(p);
+  return container;
+}
+
+const position = { currentRow: 0, currentTile: 0 };
+const movesQueue = [];
+
+/* ---- Generering av karta ---- */
+function initializeMap() {
+  metadata.length = 0;
+  map.remove(...map.children);
+  for (let rowIndex = 0; rowIndex > -10; rowIndex--) {
+    const grass = Grass(rowIndex);
+    map.add(grass);
+  }
+  addRows();
+}
+
+function randomElement(array) {
+  return array[Math.floor(Math.random() * array.length)];
+}
+function generateRows(amount) {
+  const rows = [];
+  for (let i = 0; i < amount; i++) rows.push(generateRow());
+  return rows;
+}
+function generateRow() {
+  const type = randomElement(["car", "truck", "forest"]);
+  if (type === "car") return generateCarLaneMetadata();
+  if (type === "truck") return generateTruckLaneMetadata();
+  return generateForestMetadata();
+}
+function generateForestMetadata() {
+  const occupied = new Set();
+  const trees = Array.from({ length: 4 }, () => {
+    let tileIndex;
+    do {
+      tileIndex = THREE.MathUtils.randInt(minTileIndex, maxTileIndex);
+    } while (occupied.has(tileIndex));
+    occupied.add(tileIndex);
+    const height = randomElement([20, 45, 60]);
+    return { tileIndex, height };
+  });
+  return { type: "forest", trees };
+}
+function generateCarLaneMetadata() {
+  const direction = randomElement([true, false]);
+  const speed = randomElement([125, 156, 188]);
+  const occupied = new Set();
+  const vehicles = Array.from({ length: 3 }, () => {
+    let idx;
+    do { idx = THREE.MathUtils.randInt(minTileIndex, maxTileIndex); }
+    while (occupied.has(idx));
+    occupied.add(idx - 1); occupied.add(idx); occupied.add(idx + 1);
+    const color = randomElement([0xa52523, 0xbdb638, 0x78b14b]);
+    return { initialTileIndex: idx, color };
+  });
+  return { type: "car", direction, speed, vehicles };
+}
+function generateTruckLaneMetadata() {
+  const direction = randomElement([true, false]);
+  const speed = randomElement([125, 156, 188]);
+  const occupied = new Set();
+  const vehicles = Array.from({ length: 2 }, () => {
+    let idx;
+    do { idx = THREE.MathUtils.randInt(minTileIndex, maxTileIndex); }
+    while (occupied.has(idx));
+    occupied.add(idx - 2); occupied.add(idx - 1);
+    occupied.add(idx); occupied.add(idx + 1); occupied.add(idx + 2);
+    const color = randomElement([0xa52523, 0xbdb638, 0x78b14b]);
+    return { initialTileIndex: idx, color };
+  });
+  return { type: "truck", direction, speed, vehicles };
+}
+
+function addRows() {
+  const newMeta = generateRows(20);
+  const start = metadata.length;
+  metadata.push(...newMeta);
+
+  newMeta.forEach((rowData, i) => {
+    const rowIndex = start + i + 1;
+
+    if (rowData.type === "forest") {
+      const row = Grass(rowIndex);
+      rowData.trees.forEach(({ tileIndex, height }) => {
+        const tree = Tree(tileIndex, height);
+        row.add(tree);
+      });
+      map.add(row);
+    }
+
+    if (rowData.type === "car") {
+      const row = Road(rowIndex);
+      rowData.vehicles.forEach(v => {
+        const car = Car(v.initialTileIndex, rowData.direction, v.color);
+        v.ref = car;
+        row.add(car);
+      });
+      map.add(row);
+    }
+
+    if (rowData.type === "truck") {
+      const row = Road(rowIndex);
+      rowData.vehicles.forEach(v => {
+        const truck = Truck(v.initialTileIndex, rowData.direction, v.color);
+        v.ref = truck;
+        row.add(truck);
+      });
+      map.add(row);
+    }
+  });
+}
+
+/* ---- Spelare/drag ---- */
+function initializePlayer() {
+  player.position.set(0, 0, 0);
+  player.children[0].position.z = 0;
+  position.currentRow = 0;
+  position.currentTile = 0;
+  movesQueue.length = 0;
+}
+
+function calculateFinalPosition(currentPosition, moves) {
+  return moves.reduce((pos, dir) => {
+    if (dir === "forward")  return { rowIndex: pos.rowIndex + 1, tileIndex: pos.tileIndex };
+    if (dir === "backward") return { rowIndex: pos.rowIndex - 1, tileIndex: pos.tileIndex };
+    if (dir === "left")     return { rowIndex: pos.rowIndex, tileIndex: pos.tileIndex - 1 };
+    if (dir === "right")    return { rowIndex: pos.rowIndex, tileIndex: pos.tileIndex + 1 };
+    return pos;
+  }, currentPosition);
+}
+function endsUpInValidPosition(currentPosition, moves) {
+  const finalPos = calculateFinalPosition(currentPosition, moves);
+  if (
+    finalPos.rowIndex === -1 ||
+    finalPos.tileIndex === minTileIndex - 1 ||
+    finalPos.tileIndex === maxTileIndex + 1
+  ) return false;
+
+  const finalRow = metadata[finalPos.rowIndex - 1];
+  if (finalRow && finalRow.type === "forest" &&
+      finalRow.trees.some(t => t.tileIndex === finalPos.tileIndex)) return false;
+
+  return true;
+}
+function queueMove(direction) {
+  const ok = endsUpInValidPosition(
+    { rowIndex: position.currentRow, tileIndex: position.currentTile },
+    [...movesQueue, direction]
+  );
+  if (!ok) return;
+  movesQueue.push(direction);
+}
+function stepCompleted() {
+  const dir = movesQueue.shift();
+  if (dir === "forward")  position.currentRow += 1;
+  if (dir === "backward") position.currentRow -= 1;
+  if (dir === "left")     position.currentTile -= 1;
+  if (dir === "right")    position.currentTile += 1;
+
+  if (position.currentRow > metadata.length - 10) addRows();
+
+  if (scoreDOM) scoreDOM.innerText = String(position.currentRow);
+}
+
+/* ---- Animation av spelare ---- */
+const moveClock = new THREE.Clock(false);
+function animatePlayer() {
+  if (!movesQueue.length) return;
+  if (!moveClock.running) moveClock.start();
+
+  const stepTime = 0.2;
+  const progress = Math.min(1, moveClock.getElapsedTime() / stepTime);
+
+  setPosition(progress);
+  setRotation(progress);
+
+  if (progress >= 1) {
+    stepCompleted();
+    moveClock.stop();
+  }
+}
+function setPosition(progress) {
+  const startX = position.currentTile * tileSize;
+  const startY = position.currentRow * tileSize;
+  let endX = startX, endY = startY;
+  if (movesQueue[0] === "left")     endX -= tileSize;
+  if (movesQueue[0] === "right")    endX += tileSize;
+  if (movesQueue[0] === "forward")  endY += tileSize;
+  if (movesQueue[0] === "backward") endY -= tileSize;
+
+  player.position.x = THREE.MathUtils.lerp(startX, endX, progress);
+  player.position.y = THREE.MathUtils.lerp(startY, endY, progress);
+  player.children[0].position.z = Math.sin(progress * Math.PI) * 8;
+}
+function setRotation(progress) {
+  let end = 0;
+  if (movesQueue[0] === "forward")  end = 0;
+  if (movesQueue[0] === "left")     end = Math.PI / 2;
+  if (movesQueue[0] === "right")    end = -Math.PI / 2;
+  if (movesQueue[0] === "backward") end = Math.PI;
+  player.children[0].rotation.z = THREE.MathUtils.lerp(
+    player.children[0].rotation.z, end, progress
+  );
+}
+
+/* ---- Fordonsrörelser ---- */
+const vehClock = new THREE.Clock();
+function animateVehicles() {
+  const delta = vehClock.getDelta();
+  metadata.forEach(row => {
+    if (row.type !== "car" && row.type !== "truck") return;
+
+    const beginX = (minTileIndex - 2) * tileSize;
+    const endX = (maxTileIndex + 2) * tileSize;
+
+    row.vehicles.forEach(({ ref }) => {
+      if (!ref) return;
+      if (row.direction) {
+        ref.position.x = ref.position.x > endX ? beginX : ref.position.x + row.speed * delta;
+      } else {
+        ref.position.x = ref.position.x < beginX ? endX : ref.position.x - row.speed * delta;
+      }
+    });
+  });
+}
+
+/* ---- Kollisionsdetektion ---- */
+function hitTest() {
+  const row = metadata[position.currentRow - 1];
+  if (!row || (row.type !== "car" && row.type !== "truck")) return;
+
+  const playerBB = new THREE.Box3().setFromObject(player);
+  row.vehicles.forEach(({ ref }) => {
+    if (!ref) return;
+    const vehicleBB = new THREE.Box3().setFromObject(ref);
+    if (playerBB.intersectsBox(vehicleBB)) {
+      if (!resultDOM || !finalScoreDOM) return;
+      resultDOM.style.visibility = "visible";
+      finalScoreDOM.innerText = String(position.currentRow);
+    }
+  });
+}
+
+/* ---- Scen, ljus, kamera, renderer ---- */
+const scene = new THREE.Scene();
+scene.add(player);
+scene.add(map);
+
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+dirLight.position.set(-100, -100, 200);
+dirLight.up.set(0, 0, 1);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048, 2048);
+dirLight.shadow.camera.up.set(0, 0, 1);
+dirLight.shadow.camera.left = -400;
+dirLight.shadow.camera.right = 400;
+dirLight.shadow.camera.top = 400;
+dirLight.shadow.camera.bottom = -400;
+dirLight.shadow.camera.near = 50;
+dirLight.shadow.camera.far = 400;
+dirLight.target = player;
+player.add(dirLight);
+
+const camera = createCamera();
+player.add(camera);
+
+const canvas = document.querySelector("canvas.game");
+if (!canvas) throw new Error("Canvas not found");
+
+const renderer = new THREE.WebGLRenderer({
+  alpha: true,
+  antialias: true,
+  canvas
+});
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+
+/* ---- UI-element ---- */
+const scoreDOM = document.getElementById("score");
+const resultDOM = document.getElementById("result-container");
+const finalScoreDOM = document.getElementById("final-score");
+
+/* ---- Init spel ---- */
+function initializeGame() {
+  initializePlayer();
+  initializeMap();
+  if (scoreDOM) scoreDOM.innerText = "0";
+  if (resultDOM) resultDOM.style.visibility = "hidden";
+}
+initializeGame();
+
+/* ---- Input: knappar + tangentbord ---- */
+document.getElementById("forward") ?.addEventListener("click", () => queueMove("forward"));
+document.getElementById("backward")?.addEventListener("click", () => queueMove("backward"));
+document.getElementById("left")    ?.addEventListener("click", () => queueMove("left"));
+document.getElementById("right")   ?.addEventListener("click", () => queueMove("right"));
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowUp")    { event.preventDefault(); queueMove("forward");  }
+  else if (event.key === "ArrowDown") { event.preventDefault(); queueMove("backward"); }
+  else if (event.key === "ArrowLeft") { event.preventDefault(); queueMove("left");     }
+  else if (event.key === "ArrowRight"){ event.preventDefault(); queueMove("right");    }
+});
+
+/* ---- Retry ---- */
+document.querySelector("#retry")?.addEventListener("click", initializeGame);
+
+/* ---- Resize: behåll äkta fullscreen + korrekt frustum ---- */
+window.addEventListener("resize", () => {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  updateCameraFrustum(camera);
+});
+
+/* ---- Renderloop ---- */
+renderer.setAnimationLoop(() => {
+  animateVehicles();
+  animatePlayer();
+  hitTest();
+  renderer.render(scene, camera);
+});
+
